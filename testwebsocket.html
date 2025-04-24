@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Chat WebSocket</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { color: red; text-align: center; }
+    .box { margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+    #infoserveur { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+
+  <div id="app"></div>
+
+  <script>
+    const socket = new WebSocket("wss://argentropcher-socket.glitch.me/");
+    let userId = "";
+
+    socket.onopen = () => {
+      console.log("🔌 Connecté au WebSocket");
+      socket.send("probe2");
+    };
+
+    socket.onmessage = (event) => {
+      console.log("📩 Message du serveur :", event.data);
+
+      if (event.data === "probe3") {
+        console.log("🔐 Réponse OK, envoi de 5");
+        socket.send("5");
+
+        // Ping régulier toutes les 5 secondes
+        setInterval(() => {
+          console.log("📤 Envoi ping (2)");
+          socket.send("2");
+        }, 5000);
+
+      } else if (event.data === "3") {
+        console.log("✅ Pong reçu");
+
+      } else if (event.data === "server[acces:false]") {
+  	alert("Mot de passe ou identifiant incorrect");
+      } else if (event.data === "server[acces:true]") {
+  	const app = document.getElementById("app");
+  	const h1 = app.querySelector("h1"); // On garde le titre
+  	app.innerHTML = "";
+  	app.appendChild(h1);
+  	console.log("🔓 Authentification réussie. En attente de données...");
+
+      } else if (event.data.startsWith("server_new[")) {
+  	const match = event.data.match(/link:(.+?),cookie:(.+?)\]/);
+  	if (match) {
+    	const link = match[1];
+    	const cookie = match[2];
+
+    	// Redirige avec cookie dans l'URL
+    	window.location.href = `${link}?session=${cookie}`;
+                //window.location.href = `testwebsocketconnect.html?session=${cookie}`;
+  	}
+
+      } else if (event.data==="error:authorerror"){
+	alert("échec d'authentification serveur ! restart please");
+	location.reload();
+      } else if (event.data==="error:authorplease"){
+	alert("authentification serveur nécessaire !");
+      } else if (event.data==="error:filenotfound:filedata"){
+	alert("erreur data du serveur introuvable ! server error : file not found filedata");
+
+      } else if (event.data.startsWith("userid:")) {
+        userId = event.data.split(":")[1];
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const keyFromURL = urlParams.get("authend");
+
+        if (keyFromURL) {
+	const authMessage = `[userid:${userId}],[author:${keyFromURL}]`;
+                socket.send(authMessage);  
+       } else {
+        	const key = prompt("🔐 Entrez la clé d’authentification :");
+        	if (key) {
+          		const authMessage = `[userid:${userId}],[author:${key}]`;
+          		socket.send(authMessage);
+        	}
+        }
+
+      } else if (event.data.startsWith("filedata:")) {
+        const jsonString = event.data.slice(9);
+        try {
+          const data = JSON.parse(jsonString);
+          displayData(data);
+        } catch (e) {
+          console.error("❌ Erreur JSON :", e);
+        }
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error("❌ Erreur WebSocket :", error);
+      alert("❌ Erreur WebSocket :", error);
+    };
+
+    socket.onclose = () => {
+      console.log("🔌 Connexion fermée");
+      //alert("🔌 Connexion fermée par le serveur distant");
+    };
+
+    function displayData(json) {
+      const app = document.getElementById("app");
+      app.innerHTML = ""; // Reset
+
+      // Titre
+      const title = document.createElement("h1");
+      title.textContent = "chat websocket : " + (json.zone || "inconnue");
+      app.appendChild(title);
+
+      // Div 1 : Formulaire
+      const formDiv = document.createElement("div");
+      formDiv.className = "box";
+      formDiv.innerHTML = `
+        <strong>Connexion utilisateur</strong><br><br>
+        <table>
+        <tr><td>Nom d'utilisateur :</td><td><input type="text" id="username"></td></tr>
+        <tr><td>Mot de passe : </td><td><input type="password" id="password"></td></tr>
+        </table><br>
+        <button id="loginBtn">Connexion</button>
+      `;
+      app.appendChild(formDiv);
+
+document.getElementById("loginBtn").addEventListener("click", () => {
+    const idInput = document.getElementById("username");
+    const passInput = document.getElementById("password");
+
+    if (!idInput || !passInput) {
+    alert("Champs manquants !");
+    return;
+   }
+
+   const id = idInput.value.trim();
+   const pass = passInput.value.trim();
+
+    if (!id || !pass) {
+     alert("Merci de remplir tous les champs !");
+     return;
+   }
+
+   const loginMsg = `server[id:${id},pasword:${pass}]`;
+   socket.send(loginMsg);
+  });
+
+      // Div 2 : Tableau avec json.data
+      const dataDiv = document.createElement("div");
+      dataDiv.className = "box";
+      const table = document.createElement("table");
+      table.id='infoserveur';
+      table.innerHTML = `<tr><th>Info serveur</th><th>data</th></tr>`;
+
+      if (json.data) {
+        for (const [key, value] of Object.entries(json.data)) {
+          table.innerHTML += `<tr><td>${key}</td><td>${value}</td></tr>`;
+        }
+      } else {
+        table.innerHTML += `<tr><td colspan="2">Aucune donnée</td></tr>`;
+      }
+
+      dataDiv.appendChild(table);
+      app.appendChild(dataDiv);
+    }
+  </script>
+
+</body>
+</html>

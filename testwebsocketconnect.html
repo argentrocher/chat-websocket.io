@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Chat WebSocket</title>
+  <style>
+  * {
+    box-sizing: border-box; /* ← évite tout débordement lié aux padding */
+  }
+  #main {
+    display: none;
+  }
+  
+  #chatbox {
+  position: relative;
+  margin-left: 320px; /* 300px + 30px (10px padding + 20px marge) */
+  margin-top: 33px;
+  height: calc(100vh - 121px);
+  border: 2px solid #aaa;
+  border-radius: 10px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 300px;
+  display: flex; 
+  flex-direction: column;
+ }
+ 
+ #chatInputWrapper{
+  position: absolute;
+  bottom: 0px;
+  left: 0px;
+  width: 100%;
+  max-width: 100%;
+}
+
+  /* Profil + Conteneur aligné à gauche */
+  #profilWrapper {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 100px;
+    left: 10px;
+    width: 300px; /* largeur fixe pour encadrer profil + menu */
+    height: calc(100vh - 120px);
+    border: 2px solid #aaa;
+    border-radius: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+    background-color: #f9f9f9;
+  }
+
+  #profilContainer {
+    text-align: left;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+  }
+
+  .profil-circle {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+    line-height: 30px;
+    text-align: center;
+    margin-right: 5px;
+  }
+
+  /* Zone des boutons défilable */
+  #menu {
+    flex-grow: 1;
+    overflow-y: auto;
+    border-top: 1px solid #ccc;
+    padding-top: 10px;
+  }
+
+  /* Boutons bien rectangulaires */
+  .user-btn {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    background-color: #eaeaea;
+    transition: background 0.3s;
+  }
+  .user-initial {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+  line-height: 30px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+  .user-btn:hover {
+    background-color: #d0d0d0;
+  }
+
+  /* Titre */
+  #chatTitle {
+    text-align: center;
+    color: red;
+    margin-top: 30px;
+  }
+  #versionLabel {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 14px;
+      color: gray;
+    }
+</style>
+</head>
+<body>
+
+<div id="main">
+  <div id="versionLabel"></div>
+  <h1 id="chatTitle">Chat WebSocket</h1>
+
+  <div id="profilWrapper">
+    <div id="profilContainer">
+      <div id="myProfil"></div>
+      <div id="profilEdit" style="margin-top: 15px; display: flex; align-items: center;">
+     <input type="text" id="newProfilInput" placeholder="Nouveau profil..." style="flex-grow: 1; padding: 5px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc;">
+     <button id="changeProfilBtn" style="margin-left: 10px; padding: 6px 12px; font-size: 14px; border-radius: 5px; background-color: #007bff; color: white; border: none; cursor: pointer;">
+     Changer le profil
+     </button>
+     </div>
+    </div>
+    <div id="menu"></div>
+  </div>
+  <div id="chatbox">
+      <div id="chat" style="flex: 1; overflow-y: auto; padding: 10px;" margin-bottom: 10px;">
+      </div>
+      <div id="chatInputWrapper" style="display: flex; gap: 10px; align-items: center; padding: 10px; border-top: 1px solid #ccc;">
+  	<input type="text" id="chatInput" placeholder="Écris ton message..." style="flex: 1; padding: 8px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc;">
+  	<button id="sendBtn" style="padding: 8px 16px; font-size: 14px; border-radius: 5px; background-color: #28a745; color: white; border: none; cursor: pointer;">
+    	Message
+  	</button>
+	</div>
+    
+  </div>
+</div>
+
+<script>
+const socket = new WebSocket("wss://argentropcher-socket.glitch.me/");
+let chat={};
+chat.actualchat='-all-';
+
+socket.onopen = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const session = urlParams.get("session");
+  if (session) {
+    socket.send(`connect:${session}`);
+  }
+
+  setTimeout(function() {
+    socket.send('get_chat:-all-');
+  }, 1000);
+
+  setInterval(() => {
+    console.log("📤 Envoi ping (2)");
+    socket.send("2");
+  }, 5000);
+};
+
+
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+  return color;
+}
+
+socket.onmessage = (event) => {
+  const msg = event.data;
+  console.log("📩 Message du serveur :", msg);
+
+  if (msg.startsWith("alert:")) {
+    alert(msg.split(":")[1]);
+  } else if (msg==="error:connect:invalidsession"){
+    alert("session invalidé ! connection refusé !");
+    history.back();
+  } else if (msg==="error:connect:sessionexpired"){
+    alert("session time out ! connection refusé !");
+    history.back();
+  }
+
+  // ✅ filedata
+  else if (msg.startsWith("filedata:")) {
+    const data = msg.slice(9); // enlever "filedata:"
+    document.getElementById("main").style.display = "block";
+    const parsedData = JSON.parse(data);
+    const title = parsedData["zone"] || "";
+    const version = parsedData["version"];
+    document.getElementById("chatTitle").innerText = `Chat WebSocket ${title}`;
+    document.getElementById("versionLabel").innerText = version ? `Version: ${version}` : "";
+  }
+
+  // ✅ your_profil[name:...,profil:...]
+  else if (msg.startsWith("your_profil[")) {
+    document.getElementById("profilContainer").style.display = "block";
+    const match = msg.match(/name:(.*?),profil:(.*)\]/);
+    if (match) {
+      const name = match[1];
+      chat.name = name;
+      const profil = match[2];
+      const letter = name[0].toUpperCase();
+
+      document.getElementById("myProfil").innerHTML = `
+        <div class="profil-circle">${letter}</div> <strong style="font-size: 20px;">${name}</strong><br><p id="actualprofil" style="font-size: 20px;">mon profil : ${profil}</p>
+      `;
+    }
+  } else if (msg.startsWith("new_profil:")) {
+      const newVal = msg.slice("new_profil:".length);
+      const actualProfil = document.getElementById("actualprofil");
+      if (actualProfil) {
+    	actualProfil.textContent = `mon profil : ${newVal}`;
+     }
+  }
+
+  // ✅ user_profil:{"alice":"...", "bob":"..."}
+  else if (msg.startsWith("user_profil:")) {
+    const menuDiv = document.getElementById("menu");
+    document.getElementById("menu").style.display = "block";
+    const jsonStr = msg.slice("user_profil:".length);
+
+    try {
+      const users = JSON.parse(jsonStr);
+      const sortedUsers = Object.entries(users).sort((a, b) => a[0].localeCompare(b[0]));
+      menuDiv.innerHTML = "";
+
+      // Ajout du bouton "Tout le monde"
+      const allBtn = document.createElement("div");
+      allBtn.className = "user-btn";
+      allBtn.textContent = "Tout le monde";
+      allBtn.onclick = () => {
+	console.log("Tout le monde sélectionné !");
+                socket.send('get_chat:-all-');
+	chat.actualchat='-all-';
+      }
+      menuDiv.appendChild(allBtn);
+
+      for (const [name, profil] of sortedUsers) {
+        const color = getRandomColor();
+        const initial = name[0].toUpperCase();
+
+        const button = document.createElement("div");
+        button.className = "user-btn";
+        button.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+    <div style="flex-grow: 1; text-align: center;">
+      <strong>${name}</strong><br>${profil}
+    </div>
+    <div class="user-initial" style="background-color:${color}">${initial}</div>
+  </div>`;
+        button.onclick = () => {
+	console.log(`Tu as cliqué sur ${name}`);
+	socket.send(`get_chat:${name}`);
+                chat.actualchat=`${name}`;
+       }
+        menuDiv.appendChild(button);
+      }
+    } catch (e) {
+      console.error("Erreur parsing user_profil JSON", e);
+    }
+  } else if (msg.startsWith("update_message:")) {
+    const chatName = msg.slice("update_message:".length);
+    if (chatName === chat.actualchat) {
+      socket.send(`get_chat:${chat.actualchat}`);
+    }
+  } else if (msg.startsWith("set_message:")) {
+    const jsonData = msg.slice("set_message:".length);
+    try {
+      const messages = JSON.parse(jsonData);
+      displayMessages(messages);
+    } catch (e) {
+      console.error("Erreur parsing JSON reçu :", e);
+    }
+  }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const changeBtn = document.getElementById("changeProfilBtn");
+  const input = document.getElementById("newProfilInput");
+
+  changeBtn.onclick = () => {
+    const newProfil = input.value.trim();
+    if (newProfil) {
+      socket.send(`change_profil:${newProfil}`);
+      input.value = "";
+    }
+  };
+
+  document.getElementById("sendBtn").onclick = () => {
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (text) {
+    socket.send("new_message:" + text);
+    input.value = "";
+  }
+}
+
+ document.getElementById("chatInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault(); // Empêche les sauts de ligne
+    sendBtn.click();
+  }
+});
+});
+
+function displayMessages(messages) {
+  const container = document.getElementById("chat");
+  container.innerHTML = "";
+
+  const keys = Object.keys(messages).sort((a, b) => parseInt(a) - parseInt(b));
+  for (const key of keys) {
+    const { name, message, time } = messages[key];
+
+    const isMine = name === chat.name;
+    const msgDiv = document.createElement("div");
+    msgDiv.style.marginBottom = "10px";
+    msgDiv.style.maxWidth = "70%";
+    msgDiv.style.backgroundColor = isMine ? "white" : "cyan";
+    msgDiv.style.color = "black";
+    msgDiv.style.borderRadius = "10px";
+    msgDiv.style.padding = "10px";
+    msgDiv.style.textAlign = "left";
+    msgDiv.style.marginLeft = isMine ? "auto" : "0";
+
+    const author = document.createElement("div");
+    author.style.fontWeight = "bold";
+    author.style.fontSize = "20px";
+    author.innerText = name;
+    msgDiv.appendChild(author);
+
+    const content = document.createElement("div");
+    content.innerHTML = "<br>" + message;
+    msgDiv.appendChild(content);
+
+    const timestamp = document.createElement("div");
+    timestamp.style.fontSize = "12px";
+    timestamp.style.textAlign = "right";
+    timestamp.style.marginTop = "5px";
+    timestamp.innerText = new Date(time).toLocaleTimeString();
+    msgDiv.appendChild(timestamp);
+
+    container.appendChild(msgDiv);
+  }
+
+  container.scrollTop = container.scrollHeight;
+}
+
+</script>
+
+</body>
+</html>
