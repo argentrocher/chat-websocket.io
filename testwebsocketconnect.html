@@ -314,6 +314,17 @@ socket.onmessage = (event) => {
     } catch (e) {
       console.error("Erreur parsing user_profil JSON", e);
     }
+  } else if (msg.startsWith("set_color:{")){
+     color = parseColorConfig(msg);
+     document.body.style.backgroundColor = color.bg;
+     document.getElementById("chatbox").style.backgroundColor = color.box;
+     document.getElementById("profilWrapper").style.backgroundColor = color.box;
+     document.querySelectorAll('.my-message').forEach(el => {
+     el.style.backgroundColor = color.my;
+     });
+     document.querySelectorAll('.other-message').forEach(el => {
+     el.style.backgroundColor = color.other;
+     });
   } else if (msg.startsWith("update_message:")) {
     const chatName = msg.slice("update_message:".length);
     if (chatName === chat.actualchat) {
@@ -380,11 +391,13 @@ imgInput.onchange = () => {
 document.getElementById("param").addEventListener("click", () => {
   const menu = document.getElementById("paramMenu");
   menu.style.display = (menu.style.display === "none" || menu.style.display === "") ? "block" : "none";
+  socket.send("conf_color:{bg:"+color.bg+",box:"+color.box+",my:"+color.my+",other:"+color.other+"}");
 });
 
 document.getElementById("bgColorPicker").addEventListener("input", (e) => {
   document.body.style.backgroundColor = e.target.value;
   color.bg=e.target.value;
+  //socket.send("conf_color:{bg:"+color.bg+",box:"+color.box+",my:"+color.my+",other:"+color.other+"}");
 });
 
 document.getElementById("boxColorPicker").addEventListener("input", (e) => {
@@ -392,6 +405,7 @@ document.getElementById("boxColorPicker").addEventListener("input", (e) => {
   document.getElementById("chatbox").style.backgroundColor = e.target.value;
   document.getElementById("profilWrapper").style.backgroundColor = e.target.value;
   color.box=e.target.value;
+  //socket.send("conf_color:{bg:"+color.bg+",box:"+color.box+",my:"+color.my+",other:"+color.other+"}");
 });
 document.getElementById("myChatColorPicker").addEventListener("input", (e) => {
   // Appliquer à tes messages par exemple
@@ -399,13 +413,25 @@ document.getElementById("myChatColorPicker").addEventListener("input", (e) => {
     el.style.backgroundColor = e.target.value;
   });
   color.my=e.target.value;
+  //socket.send("conf_color:{bg:"+color.bg+",box:"+color.box+",my:"+color.my+",other:"+color.other+"}");
 });
 document.getElementById("otherChatColorPicker").addEventListener("input", (e) => {
   document.querySelectorAll('.other-message').forEach(el => {
     el.style.backgroundColor = e.target.value;
   });
   color.other=e.target.value;
+  //socket.send("conf_color:{bg:"+color.bg+",box:"+color.box+",my:"+color.my+",other:"+color.other+"}");
 });
+
+const colorsrandom = ["red", "blue", "green", "yellow", "purple", "orange"];
+setInterval(() => {
+    const elements = document.querySelectorAll(".multicolor");
+    const colori = colorsrandom[Math.floor(Math.random() * colorsrandom.length)];
+
+    elements.forEach(el => {
+      el.style.color = colori;
+    });
+  }, 1000);
 });
 
 function displayMessages(messages) {
@@ -449,6 +475,23 @@ function displayMessages(messages) {
   }
 
   container.scrollTop = container.scrollHeight;
+}
+
+function parseColorConfig(message) {
+  const match = message.match(/set_color:\{(.+?)\}/);
+  if (!match) return null;
+
+  const parts = match[1].split(",");
+  const color = {};
+
+  parts.forEach(part => {
+    const [key, value] = part.split(":");
+    if (key && value) {
+      color[key.trim()] = value.trim();
+    }
+  });
+
+  return color;
 }
 
 </script>
