@@ -125,9 +125,38 @@
 </style>
 </head>
 <body>
+<div id="paramMenu" style="
+  display: none;
+  position: absolute;
+  top: 50px;
+  left: 5px;
+  background-color: white;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
+">
+  <label>Couleur du fond :
+    <input type="color" id="bgColorPicker">
+  </label><br><br>
+  
+  <label>Couleur des cases :
+    <input type="color" id="boxColorPicker">
+  </label><br><br>
+
+  <label>Ma couleur de chat :
+    <input type="color" id="myChatColorPicker">
+  </label><br><br>
+
+  <label>Autres couleur de chat :
+    <input type="color" id="otherChatColorPicker">
+  </label>
+</div>
 
 <div id="main">
   <div id="versionLabel"></div>
+  <img src="param.png" style="position: absolute; max-width: 40px; height: auto; top: 5px; cursor: pointer;" id="param">
   <h1 id="chatTitle">Chat WebSocket</h1>
 
   <div id="profilWrapper">
@@ -148,8 +177,10 @@
       <div id="chatInputWrapper" style="display: flex; gap: 10px; align-items: center; padding: 10px; border-top: 1px solid #ccc;">
   	<input type="text" id="chatInput" placeholder="Écris ton message..." style="flex: 1; padding: 8px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc;">
   	<button id="sendBtn" style="padding: 8px 16px; font-size: 14px; border-radius: 5px; background-color: #28a745; color: white; border: none; cursor: pointer;">
-    	Message
+                Message
   	</button>
+                <input type="file" id="imgInput" accept="image/*" style="display: none;">
+                <button id="sendImageBtn" style="padding: 8px 10px; font-size: 14px; border-radius: 5px; background-color: #00a700; color: white; border: none; cursor: pointer;">Envoyer une image</button>
 	</div>
     
   </div>
@@ -159,6 +190,12 @@
 const socket = new WebSocket("wss://argentropcher-socket.glitch.me/");
 let chat={};
 chat.actualchat='-all-';
+
+color={};
+color.bg="white";
+color.box="#f9f9f9";
+color.my="white";
+color.other="cyan";
 
 socket.onopen = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -297,6 +334,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const changeBtn = document.getElementById("changeProfilBtn");
   const input = document.getElementById("newProfilInput");
 
+  const imgInput = document.getElementById("imgInput");
+
   changeBtn.onclick = () => {
     const newProfil = input.value.trim();
     if (newProfil) {
@@ -320,6 +359,53 @@ document.addEventListener("DOMContentLoaded", () => {
     sendBtn.click();
   }
 });
+
+ document.getElementById("sendImageBtn").onclick = () => {
+  imgInput.click();
+};
+
+imgInput.onchange = () => {
+  const file = imgInput.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const base64String = e.target.result; // data:image/... base64 string
+    chatInput.value = `<img src="${base64String}" style="max-width: 100%; height: auto;"/>`;
+    sendBtn.click();
+  };
+  reader.readAsDataURL(file); // lit en base64
+};
+
+document.getElementById("param").addEventListener("click", () => {
+  const menu = document.getElementById("paramMenu");
+  menu.style.display = (menu.style.display === "none" || menu.style.display === "") ? "block" : "none";
+});
+
+document.getElementById("bgColorPicker").addEventListener("input", (e) => {
+  document.body.style.backgroundColor = e.target.value;
+  color.bg=e.target.value;
+});
+
+document.getElementById("boxColorPicker").addEventListener("input", (e) => {
+  // Appliquer aux éléments avec une certaine classe par exemple
+  document.getElementById("chatbox").style.backgroundColor = e.target.value;
+  document.getElementById("profilWrapper").style.backgroundColor = e.target.value;
+  color.box=e.target.value;
+});
+document.getElementById("myChatColorPicker").addEventListener("input", (e) => {
+  // Appliquer à tes messages par exemple
+  document.querySelectorAll('.my-message').forEach(el => {
+    el.style.backgroundColor = e.target.value;
+  });
+  color.my=e.target.value;
+});
+document.getElementById("otherChatColorPicker").addEventListener("input", (e) => {
+  document.querySelectorAll('.other-message').forEach(el => {
+    el.style.backgroundColor = e.target.value;
+  });
+  color.other=e.target.value;
+});
 });
 
 function displayMessages(messages) {
@@ -334,7 +420,8 @@ function displayMessages(messages) {
     const msgDiv = document.createElement("div");
     msgDiv.style.marginBottom = "10px";
     msgDiv.style.maxWidth = "70%";
-    msgDiv.style.backgroundColor = isMine ? "white" : "cyan";
+    msgDiv.style.backgroundColor = isMine ? color.my : color.other;
+    msgDiv.className = isMine ? "my-message" : "other-message";
     msgDiv.style.color = "black";
     msgDiv.style.borderRadius = "10px";
     msgDiv.style.padding = "10px";
