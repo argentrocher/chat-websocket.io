@@ -4,7 +4,7 @@ const WebSocket = require("ws");
 const crypto = require("crypto");
 
 const sessionStore = new Map();
-const validKeys = new Set(["yourkey", "yourkey", "yourkey"]);
+const validKeys = new Set(["bob", "moncodeadmin", "invite2024"]);
 
 const app = express();
 const server = http.createServer(app);
@@ -107,6 +107,9 @@ wss.on("connection", (ws) => {
         // 1. Envoi du profil personnel
         ws.send(`your_profil[name:${ws.myName},profil:${ws.myProfil}]`);
 
+        //envoie des couleur du profil
+        sendColorIfExists(ws);
+        
         // 2. Envoi des autres profils
         const autresProfils = {};
         for (const [nom, profil] of Object.entries(profils)) {
@@ -123,7 +126,7 @@ wss.on("connection", (ws) => {
       ws.send(ws.author);
       ws.send(ws.userid);
       ws.send(session.name);
-      ws.send(session.pasword);
+      //ws.send(session.pasword);
       //ws.send(alert:Bienvenue ${session.name} sur chat websocket !)
     }
 
@@ -628,8 +631,9 @@ wss.on("connection", (ws) => {
             );
           });
         }
+      } else if (msg.startsWith("conf_color:")) {
+          saveColor(ws, msg);
       }
-
       //complette -----------------------------------------------------------------------------------------------
     }
   });
@@ -651,3 +655,41 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Serveur lancé sur le port ${PORT}`);
 });
+
+function saveColor(ws, message) {
+  const fs = require('fs');
+  const path = './data_user/color_user.json';
+  try {
+    if (!ws.myName) return;
+
+    // Extraire uniquement le contenu entre les accolades
+    const match = message.match(/conf_color:\{(.+?)\}/);
+    if (!match) return;
+    const colorData = match[1]; // exemple: "bg:#c61010,box:#652bab,my:#44d574,other:cyan"
+
+    const data = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path)) : {};
+    data[ws.myName] = colorData;
+
+    fs.writeFileSync(path, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error("Erreur sauvegarde couleur:", err);
+  }
+}
+
+function sendColorIfExists(ws) {
+  const fs = require('fs');
+  const path = './data_user/color_user.json';
+  try {
+    if (!ws.myName) return;
+    if (!fs.existsSync(path)) return;
+
+    const data = JSON.parse(fs.readFileSync(path));
+    const conf = data[ws.myName];
+
+    if (conf) {
+      ws.send("set_color:{"+conf+"}");
+    }
+  } catch (err) {
+    console.error("Erreur lecture couleur:", err);
+  }
+}
