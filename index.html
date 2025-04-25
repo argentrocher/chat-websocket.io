@@ -43,6 +43,8 @@
 
       } else if (event.data === "server[acces:false]") {
   	alert("Mot de passe ou identifiant incorrect");
+      } else if (event.data === "server[acces:none]") {
+  	alert("Mot de passe trop court ou invalide (depuis le serveur)");
       } else if (event.data === "server[acces:true]") {
   	const app = document.getElementById("app");
   	const h1 = app.querySelector("h1"); // On garde le titre
@@ -144,6 +146,19 @@ document.getElementById("loginBtn").addEventListener("click", () => {
     if (!id || !pass) {
      alert("Merci de remplir tous les champs !");
      return;
+   }
+
+   const idForbidden = /[:,+\-{}\[\]()§]/;
+   const passForbidden = /[:{}\[\],]/;
+
+   if (idForbidden.test(id)) {
+    alert("L'identifiant contient des caractères non autorisés ! ( + - { } [ ] ( ) : , § )");
+    return;
+   }
+
+   if (passForbidden.test(pass)) {
+    alert("Le mot de passe contient des caractères non autorisés ! ( { } [ ]  : , )");
+    return;
    }
 
    const loginMsg = `server[id:${id},pasword:${pass}]`;
