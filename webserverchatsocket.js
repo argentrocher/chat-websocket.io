@@ -171,7 +171,7 @@ wss.on("connection", (ws) => {
           fs.readFile(authorFile, "utf-8", (err, data) => {
             if (err) {
               console.log(
-                "📁 Fichier ${ws.author}.json introuvable, envoi de base.json"
+                `📁 Fichier ${ws.author}.json introuvable, envoi de base.json`
               );
               fs.readFile(baseFile, "utf-8", (err2, baseData) => {
                 if (err2) {
@@ -255,6 +255,11 @@ wss.on("connection", (ws) => {
                   }
                 } else {
                   // Nouvel utilisateur → enregistrer
+                  if (inputPass.length < 4 || inputPass.includes(",") || inputPass.includes(":")) {
+                    ws.send("server[acces:none]");
+                    console.log("pasword invalide");
+                    return;
+                  }
                   users[inputId] = inputPass;
                   fs.writeFile(
                     userFile,
