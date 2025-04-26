@@ -19,9 +19,20 @@
   <script>
     const socket = new WebSocket("wss://argentropcher-socket.glitch.me/");
     let userId = "";
+    let connectionTimeout;
+
+    connectionTimeout = setTimeout(() => { //relance la page si elle ne répond pas
+      if (socket.readyState !== WebSocket.OPEN) {
+        console.log("⏰ Temps dépassé, reconnexion...");
+        socket.close(); // Fermer la connexion au cas où
+        alert("Le serveur a mis trop de temps à répondre, la page va se relancer automatiquement.");
+        location.reload();
+      }
+    }, 10000);
 
     socket.onopen = () => {
       console.log("🔌 Connecté au WebSocket");
+      clearTimeout(connectionTimeout); //annule la relance de la page si la connection à réussi
       socket.send("probe2");
     };
 
@@ -186,4 +197,4 @@ document.getElementById("loginBtn").addEventListener("click", () => {
   </script>
 
 </body>
-</html> 
+</html>
